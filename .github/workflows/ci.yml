@@ -38,7 +38,9 @@ jobs:
           node-version: '20.x'
           
       - name: Installation des dépendances Backend
+        working-directory: ./agrisens
         run: npm install
         
       - name: Lancement des tests (si existants)
+        working-directory: ./agrisens
         run: npm test --if-present
