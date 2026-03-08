@@ -1,0 +1,44 @@
+name: Agrisens CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+      
+      - name: Configuration de Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          
+      - name: Installation des dépendances Frontend
+        working-directory: ./agrisens-frontend
+        run: npm install
+        
+      - name: Build du projet React/Vite
+        working-directory: ./agrisens-frontend
+        run: npm run build
+
+  test-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+      
+      - name: Configuration de Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          
+      - name: Installation des dépendances Backend
+        run: npm install
+        
+      - name: Lancement des tests (si existants)
+        run: npm test --if-present
