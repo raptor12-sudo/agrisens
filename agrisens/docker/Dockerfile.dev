@@ -1,0 +1,17 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Dépendances système
+RUN apk add --no-cache python3 make g++
+
+# Installer les dépendances npm en premier (cache layer)
+COPY package*.json ./
+RUN npm install
+
+# Copier le reste du code
+COPY . .
+
+EXPOSE ${API_PORT}
+
+CMD ["npm", "run", "dev"]

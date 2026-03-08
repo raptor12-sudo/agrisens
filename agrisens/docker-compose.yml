@@ -1,0 +1,126 @@
+services:
+
+  # ─────────────────────────────
+  # API Node.js / Express
+  # ─────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dev
+    container_name: agrisens_api
+    restart: unless-stopped
+    ports:
+      - '${API_PORT}:${API_PORT}'
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+      influxdb:
+        condition: service_healthy
+      mosquitto:
+        condition: service_started
+    networks:
+      - agrisens_net
+
+  # ─────────────────────────────
+  # PostgreSQL
+  # ─────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: agrisens_postgres
+    restart: unless-stopped
+    ports:
+      - '${POSTGRES_PORT}:5432'
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - agrisens_net
+
+  # ─────────────────────────────
+  # InfluxDB
+  # ─────────────────────────────
+  influxdb:
+    image: influxdb:2.7-alpine
+    container_name: agrisens_influxdb
+    restart: unless-stopped
+    ports:
+      - '${INFLUX_PORT}:8086'
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: ${INFLUX_USER}
+      DOCKER_INFLUXDB_INIT_PASSWORD: ${INFLUX_PASSWORD}
+      DOCKER_INFLUXDB_INIT_ORG: ${INFLUX_ORG}
+      DOCKER_INFLUXDB_INIT_BUCKET: ${INFLUX_BUCKET}
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${INFLUX_TOKEN}
+    volumes:
+      - influx_data:/var/lib/influxdb2
+      - influx_config:/etc/influxdb2
+    healthcheck:
+      test: ['CMD', 'influx', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - agrisens_net
+
+  # ─────────────────────────────
+  # Mosquitto MQTT Broker
+  # ─────────────────────────────
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: agrisens_mosquitto
+    restart: unless-stopped
+    ports:
+      - '1884:1884'
+      - '9002:9002'
+    volumes:
+      - ./docker/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - ./docker/mosquitto/passwd:/mosquitto/config/passwd
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_logs:/mosquitto/log
+    networks:
+      - agrisens_net
+
+  # ─────────────────────────────
+  # pgAdmin (optionnel, dev only)
+  # ─────────────────────────────
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: agrisens_pgadmin
+    restart: unless-stopped
+    ports:
+      - '5050:80'
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+    depends_on:
+      - postgres
+    networks:
+      - agrisens_net
+    profiles:
+      - tools
+
+volumes:
+  postgres_data:
+  influx_data:
+  influx_config:
+  mosquitto_data:
+  mosquitto_logs:
+
+networks:
+  agrisens_net:
+    driver: bridge
